@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Derive and explore models of visual orientation selectivity, from spatial pooling to recurrent dynamics.">
+<title>Orientation selectivity — Research Notes</title>
+<link rel="stylesheet" href="math/katex.min.css">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js">
+</script>
+</head>
+<body id="top">
+<a class="skip" href="#article">Skip to article</a>
+<header>
+<a class="brand" href="#top">Research Notes</a>
+</header>
+<div class="layout">
+<aside>
+<p class="eyebrow">Research notebook / 01</p>
+<nav aria-label="Contents">
+<a href="#question">Question</a>
+<a href="#selectivity">What is selectivity?</a>
+<a href="#input-story">Where does the input come from?</a>
+<a href="#threshold-story">From input to response</a>
+<a href="#population-story">Population dynamics</a>
+<a href="#steady-state">Where activity settles</a>
+<a href="#mathematical-details">Mathematical details</a>
+<a href="#references">References</a>
+</nav>
+<p class="side-note">Start with the question.<br>Build intuition.<br>Explore the mathematics.</p>
+</aside>
+<main id="article">
+<div class="hero">
+<h1>Where does orientation selectivity come from?</h1>
+</div>
+<section id="question">
+<h2>Question</h2>
+<p>A neuron in primary visual cortex may respond strongly to one edge orientation and weakly to another. Where does that preference enter the computation: in its inputs, in the conversion from input to spikes, or in the surrounding circuit?</p>
+
+</section>
+<section id="selectivity">
+<h2>What is selectivity?</h2>
+<p>Show the same neuron a series of striped patterns, changing only the angle of the bars. It may respond strongly to some orientations and weakly to others. This difference is what we mean by <em>orientation selectivity</em>. The orientation that produces the strongest response is its <em>preferred orientation</em>.</p>
+<div class="lab selectivity-demo">
+<div class="lab-heading"><h3>Rotate the stimulus. Watch the response.</h3><button id="selectivity-reset" type="button">Reset</button></div>
+<div class="controls"><label for="selectivity-angle">Bar orientation <output id="selectivity-angle-value" for="selectivity-angle">45°</output></label><input id="selectivity-angle" type="range" min="0" max="180" step="1" value="45" aria-describedby="selectivity-help"><p id="selectivity-help">Drag the slider or use the arrow keys. Angles are measured counterclockwise from horizontal.</p></div>
+<div class="selectivity-presets" role="group" aria-label="Choose a stimulus orientation"><button type="button" data-orientation="0">Horizontal · 0°</button><button type="button" data-orientation="45">Oblique · 45°</button><button type="button" data-orientation="90">Vertical · 90°</button></div>
+<div class="selectivity-panels">
+<figure><h4>The stimulus</h4><canvas id="selectivity-stimulus" width="360" height="360" role="img" aria-label="Striped stimulus at 45 degrees"></canvas></figure>
+<figure><h4>The same neuron's response</h4><svg id="selectivity-curve" viewBox="0 0 400 300" role="img" aria-label="Illustrative orientation tuning curve with the selected response marked"></svg></figure>
+</div>
+</div>
+</section>
+<section id="input-story">
+<h2>Where does the input come from?</h2>
+<p>A neuron receives input from different parts of visual space. How these inputs are arranged can give it a preference for one orientation. Hubel and Wiesel proposed spatial convergence as an explanation for this preference. <a href="#ref1">[1]</a></p>
+<p>Here we use an elongated Gaussian weighting field. Inputs near its center carry more weight. The ellipse shows its shape, while the weights taper smoothly beyond the outline.</p>
+
+<p>When a bright bar follows the long axis, nearby inputs reinforce one another. Across the field, bright and dark bands contribute opposite signs and partly cancel. Each location contributes its contrast multiplied by its weight, and these contributions are added together. The right image shows the weighted contributions, with gray representing zero.</p>
+<div class="lab input-story-demo">
+<div class="lab-heading"><h3>Rotate the bars over the input field</h3><button id="input-reset" type="button">Reset</button></div>
+<div class="controls"><label for="input-angle">Bar orientation <output id="input-angle-value">90°</output></label><input id="input-angle" type="range" min="0" max="180" step="1" value="90"></div>
+<div class="selectivity-presets"><button type="button" data-input-angle="90">Along the field</button><button type="button" data-input-angle="0">Across the field</button></div>
+<details class="interactive-disclosure" id="explore-input-stimulus">
+<summary>Explore the stimulus</summary>
+<div class="input-parameter-grid">
+<div class="controls"><label for="input-orientation">Orientation <output id="input-orientation-value">90°</output></label><input id="input-orientation" type="range" min="0" max="180" step="1" value="90"><p>Rotates the bars.</p></div>
+<div class="controls"><label for="input-frequency">Spatial frequency <output id="input-frequency-value">0.25 cycles/°</output></label><input id="input-frequency" type="range" min="0.10" max="0.60" step="0.01" value="0.25"><p>Higher frequency packs more bars into the same space.</p></div>
+<div class="controls"><label for="input-contrast">Contrast <output id="input-contrast-value">100%</output></label><input id="input-contrast" type="range" min="0" max="1" step="0.01" value="1"><p>Changes the difference between bright and dark. Zero gives uniform gray.</p></div>
+<div class="controls"><label for="input-phase">Phase <output id="input-phase-value">0°</output></label><input id="input-phase" type="range" min="-180" max="180" step="1" value="0"><p>Slides the bars across the region without rotating them.</p></div>
+</div>
+</details>
+<div class="input-story-panels">
+<figure><h4>Stimulus + pooling region</h4><canvas id="input-overlay" width="360" height="360" role="img" aria-label="Grating with an elliptical pooling contour"></canvas></figure>
+<figure><h4>Weighted contributions</h4><canvas id="input-contributions" width="360" height="360" role="img" aria-label="Spatially weighted contrast contributions"></canvas></figure>
+</div>
+<p class="input-total">Summed input <output id="input-sum">0.881</output></p>
+</div>
+<p class="input-key-equation">\(\displaystyle \text{input}=\sum_{\text{locations}}\text{weight}\times\text{contrast}\)</p>
+</section>
+<section id="threshold-story">
+<h2>How does input become a response?</h2>
+<p>An orientation away from the preferred one can still provide input. That input may be too weak to produce spikes. A threshold gives us a simple way to describe this step. In cat visual cortex, thresholding helped explain why spike responses were more selective than the underlying membrane potential. <a href="#ref2">[2]</a></p>
+<p>Keep the input from the elongated field and add a threshold. Below it, the output is zero. Above it, only the amount exceeding the threshold contributes to the output.</p>
+<p class="input-key-equation">\(\displaystyle \text{output}=\max\!\left(0,\,\text{input}-\text{threshold}\right)\)</p>
+<div class="lab selectivity-demo threshold-demo">
+<div class="lab-heading"><h3>From input to output</h3><button id="response-reset" type="button">Reset</button></div>
+<div class="input-parameter-grid">
+<div class="controls"><label for="response-angle">Bar orientation <output id="response-angle-value">45°</output></label><input id="response-angle" type="range" min="0" max="180" step="1" value="45"></div>
+<div class="controls"><label for="response-threshold">Threshold <output id="response-threshold-value">0.30</output></label><input id="response-threshold" type="range" min="0" max="1" step="0.01" value="0.3"></div>
+</div>
+<div class="selectivity-panels">
+<figure><h4>The stimulus</h4><canvas id="response-stimulus" width="360" height="360" role="img" aria-label="Static grating at 45 degrees"></canvas></figure>
+<figure><h4>Input and output</h4><div class="response-legend"><span class="response-input-key">Input</span><span class="response-output-key">Output</span></div><svg id="response-curve" viewBox="0 0 400 300" role="img" aria-label="Input and thresholded output"></svg></figure>
+</div>
+<div class="response-values" aria-live="polite"><span>Input <output id="response-input">0.28</output></span><span>Output <output id="response-output">0.00</output></span></div>
+</div>
+</section>
+<section id="population-story">
+<h2>Population dynamics</h2>
+<p>So far, each neuron has responded to its own visual input. Now place it among neurons that prefer different orientations. Their activity becomes another source of input, so a neuron's response depends on both the stimulus and the surrounding population.</p>
+<p>We arrange the neurons by their preferred orientation. In this model, neurons with similar preferences support one another, while neurons with more distant preferences can reduce one another's input. These signed connections describe the net effect of the circuit. This approach follows classical models of orientation tuning. <a href="#ref3">[3]</a></p>
+<h3>Connections depend on preference difference</h3>
+<p>Let \(\Delta=\varphi_i-\varphi_j\) be the difference between two neurons' preferred orientations. We choose a smooth connection profile that is strongest at zero difference and weakest when the preferences are perpendicular.</p>
+<p class="input-key-equation">\(\displaystyle J(\Delta)=g\,[J_0+J_2\cos(2\Delta)]\)</p>
+<p>\(J_0\) shifts the whole curve up or down, \(J_2\) sets how much it varies with preference difference, and \(g\) scales its strength. Here \(J_0=0.3\) and \(J_2=1.2\). The factor of two gives the curve a 180° period, matching the repetition of bar orientation.</p>
+<p>Near zero, the connection is positive, so activity adds input to a neuron with a similar preference. Near ±90°, it is negative and reduces input. Moving left or right gives the same strength because only the size of the orientation difference matters.</p>
+<div class="lab population-demo">
+<div class="input-parameter-grid">
+<div class="controls"><label for="connection-difference">Preference difference <output id="connection-difference-value">0°</output></label><input id="connection-difference" type="range" min="-90" max="90" step="1" value="0"></div>
+<div class="controls"><label for="population-gain">Connection strength <output id="population-gain-value">0.80</output></label><input id="population-gain" type="range" min="0" max="1" step="0.05" value="0.8"></div>
+<button id="population-reset" type="button">Reset</button>
+</div>
+<svg id="connection-curve" viewBox="0 0 560 330" role="img" aria-label="Cosine connection profile across differences in preferred orientation"></svg>
+</div>
+<h3 id="population-dynamics">Dynamics</h3>
+<p>A connection contributes \(W_{ij}r_j\), where \(r_j\) is the sending neuron's activity. Its weight is \(W_{ij}=J(\varphi_i-\varphi_j)/N\) for a population of \(N\) neurons. Dividing by \(N\) keeps the summed input comparable across population sizes. We set self-connections to zero.</p>
+<p>Each neuron combines these contributions with its visual input, then applies the threshold. This gives its current target response.</p>
+<p class="input-key-equation">\(\displaystyle R_i=\max\!\left(0,\,I_i+\sum_{j\ne i}W_{ij}r_j-T\right)\)</p>
+<p>\(I_i\) is the visual input, \(\sum_{j\ne i}W_{ij}r_j\) is the input from the rest of the population, and \(T\) is the threshold. The activity \(r_i\) moves toward this target \(R_i\) over time.</p>
+<p class="input-key-equation">\(\displaystyle \tau\frac{dr_i}{dt}=R_i-r_i\)</p>
+<p>Activity rises when the target exceeds the current response and falls when it is lower. The time constant \(\tau\) sets the pace, here 20 ms. As each neuron's activity changes, the input it sends to other neurons changes too, so their targets keep changing together.</p>
+<p>Keep the vertical grating fixed and switch on the connections. The dashed curve shows the response without connections; the solid curve follows the interacting population. Changing connection strength restarts both from the same initial activity.</p>
+<div class="lab dynamics-demo">
+<div class="lab-heading"><h3>Activity across the population</h3><button id="dynamics-reset" type="button">Reset</button></div>
+<div class="dynamics-stimulus"><div class="fixed-grating" role="img" aria-label="Fixed vertical cosine grating"></div><span>Vertical stimulus</span></div>
+<div class="controls"><label for="dynamics-gain">Connection strength <output id="dynamics-gain-value">0.80</output></label><input id="dynamics-gain" type="range" min="0" max="1" step="0.05" value="0.8"></div>
+<div class="dynamics-playback"><button id="dynamics-play" type="button">Play</button><button id="dynamics-restart" type="button">Restart</button><output id="dynamics-time" aria-label="Simulation time">0 ms</output></div>
+<div class="response-legend"><span class="response-input-key">Without connections</span><span>With connections</span></div>
+<svg id="dynamics-curve" viewBox="0 0 560 330" role="img" aria-label="Population activity over preferred orientation"></svg>
+</div>
+</section>
+<section id="steady-state">
+<h2>Where does the activity settle?</h2>
+<p>In the demo above, the population approaches a fixed response while the stimulus stays unchanged. The neurons remain active and continue sending input to one another. What disappears is the difference between each neuron's current activity and the target supported by its inputs. This is a steady state.</p>
+<p>At that point, \(dr_i/dt=0\), so \(r_i^*=R_i^*\). Substituting the target response gives</p>
+<p class="input-key-equation">\(\displaystyle r_i^*=\max\!\left(0,\,I_i+\sum_{j\ne i}W_{ij}r_j^*-T\right)\)</p>
+<p>The star marks a steady-state value. \(I_i\) is the fixed visual input, \(W_{ij}\) is the connection weight, and \(T\) is the threshold. Each neuron's activity appears on the left as a response and on the right as an input to other neurons. The whole population must satisfy these relationships together.</p>
+<p>With no connections, the population settles at the thresholded visual input. With connections, activity feeds back into the circuit and changes the final response. In the example above, positive feedback increases activity near the preferred orientation, while negative contributions suppress more distant preferences. The final shape depends on both the visual input and the connections.</p>
+<p>This brings us back to orientation selectivity. Spatial pooling makes some orientations produce stronger input. The threshold shapes how that input becomes a response. Population interactions then reshape the activity supported by the circuit. The response we observe is the outcome of these steps working together.</p>
+</section>
+<section id="mathematical-details">
+<h2>Mathematical details</h2>
+<p class="input-key-equation">\(\displaystyle s_\theta(\mathbf{x})=C\cos\!\left(2\pi f\,\mathbf{n}_\theta\cdot\mathbf{x}+\psi\right)\)</p>
+<p>\(s_\theta(\mathbf{x})\) gives the signed contrast at position \(\mathbf{x}\) relative to mean luminance. The bar angle \(\theta\) determines the unit normal \(\mathbf{n}_\theta\), so \(\mathbf{n}_\theta\cdot\mathbf{x}\) measures distance across the bars. Spatial frequency \(f\) sets the spacing, phase \(\psi\) shifts the pattern, and \(C\) sets its contrast.</p>
+<p class="input-key-equation">\(\displaystyle q(\theta)=C\cos\psi\,e^{-k^2\sigma_\perp^2/2}\exp\!\left[-\frac{k^2}{2}(\sigma_\parallel^2-\sigma_\perp^2)\sin^2(\theta-\varphi)\right]\)</p>
+<p>\(q(\theta)\) is the input obtained by weighting the grating across space, before applying the threshold. Here \(k=2\pi f\), \(\varphi\) is the angle of the field's long axis, and \(\sigma_\parallel,\sigma_\perp\) are the Gaussian widths along and across that axis. With a bright bar centered on the field and \(\sigma_\parallel\gt\sigma_\perp\), the input is largest when the bars align with the long axis.</p>
+<details class="math-disclosure" id="deriving-the-grating">
+<summary>Deriving the grating</summary>
+<div class="math-derivation">
+<h3>Measure distance across the bars</h3>
+<p>A grating repeats across its bars and stays constant along them. We therefore need one coordinate that measures how far a point lies across the pattern.</p>
+<p>Write a position as \(\mathbf{x}=(x,y)\), with \(x\) pointing right and \(y\) pointing up. Both coordinates are measured in degrees of visual angle. Let \(\theta\) be the angle of the bars, measured counterclockwise from horizontal. A unit vector along the bars is \(\mathbf{b}_\theta=(\cos\theta,\sin\theta)\). Rotating it by 90° gives a unit normal.</p>
+<p class="input-key-equation">\(\displaystyle \mathbf{n}_\theta=(-\sin\theta,\cos\theta)\)</p>
+<p>Projecting position onto this normal gives the signed distance \(\ell\) across the bars.</p>
+<p class="input-key-equation">\(\displaystyle \ell=\mathbf{n}_\theta\cdot\mathbf{x}=-x\sin\theta+y\cos\theta\)</p>
+<h3>Turn distance into a repeating pattern</h3>
+<p>Let \(\lambda\) be the distance between neighboring bright peaks, measured across the bars. The spatial frequency \(f=1/\lambda\) counts cycles per degree of visual angle. A distance \(\ell\) therefore spans \(f\ell\) cycles. One cosine cycle takes \(2\pi\) radians, so the corresponding angle is \(2\pi f\ell\).</p>
+<p class="input-key-equation">\(\displaystyle \cos(2\pi f\ell),\qquad \cos\!\bigl(2\pi f(\ell+\lambda)\bigr)=\cos(2\pi f\ell+2\pi)=\cos(2\pi f\ell)\)</p>
+<p>Increasing \(f\) reduces \(\lambda\), bringing the bars closer together. At \(\ell=0\), the cosine is 1; half a spacing away it is −1; one full spacing away it returns to 1. Choosing a cosine makes the transitions between bright and dark smooth.</p>
+<h3>Set phase and contrast</h3>
+<p>A phase \(\psi\) changes where the bright peaks fall without changing their spacing or orientation. We add it to the cosine's angle.</p>
+<p>Multiply the cosine by a contrast amplitude \(C\), with \(0\le C\le1\). The resulting signed contrast \(s_\theta\) ranges from \(-C\) to \(C\). Substituting the projected distance gives</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}s_\theta(\mathbf{x})&=C\cos(2\pi f\ell+\psi)\\&=C\cos\!\bigl(2\pi f(-x\sin\theta+y\cos\theta)+\psi\bigr).\end{aligned}\)</p>
+<p>Writing \(k=2\pi f\), the same expression becomes \(s_\theta(\mathbf{x})=C\cos(k\mathbf{n}_\theta\cdot\mathbf{x}+\psi)\). Here \(k\) is angular spatial frequency in radians per degree of visual angle. For horizontal bars, \(\theta=0\) and \(\ell=y\); for vertical bars, \(\theta=90^\circ\) and \(\ell=-x\).</p>
+<h3>Recover actual luminance</h3>
+<p>Signed contrast describes a deviation from a mean, not a negative amount of light. Let \(\bar L\gt0\) be the mean luminance over a complete cycle. Define the local relative deviation as \(s=(L-\bar L)/\bar L\). Multiplying by \(\bar L\) and adding the mean back gives</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}\bar Ls&=L-\bar L,\\L_\theta(\mathbf{x})&=\bar L\,[1+s_\theta(\mathbf{x})]\\&=\bar L\,[1+C\cos(k\mathbf{n}_\theta\cdot\mathbf{x}+\psi)].\end{aligned}\)</p>
+<p>The cosine averages to zero over a full cycle, so the mean remains \(\bar L\). Its extreme values give \(L_{\max}=\bar L(1+C)\) and \(L_{\min}=\bar L(1-C)\). Thus the Michelson contrast of this grating is exactly \(C\).</p>
+<p class="input-key-equation">\(\displaystyle \frac{L_{\max}-L_{\min}}{L_{\max}+L_{\min}}=\frac{2\bar LC}{2\bar L}=C\)</p>
+<p>At \(C=0\), the image is uniform at \(\bar L\). At \(C=1\), its darkest points reach zero and its brightest points reach \(2\bar L\).</p>
+<h3>The grating in one expression</h3>
+<p class="input-key-equation">\(\displaystyle s_\theta(\mathbf{x})=C\cos\!\left(2\pi f\,\mathbf{n}_\theta\cdot\mathbf{x}+\psi\right)\)</p>
+<p>At each position \(\mathbf{x}\), this gives the signed contrast relative to mean luminance. The orientation \(\theta\) sets the direction of the bars, \(f\) sets their spacing, \(\psi\) shifts their position, and \(C\) sets the amplitude of the light–dark variation. The projection \(\mathbf{n}_\theta\cdot\mathbf{x}\) measures distance across the bars.</p>
+</div>
+</details>
+<details class="math-disclosure" id="deriving-spatial-pooling">
+<summary>From an elliptical input field to orientation tuning</summary>
+<div class="math-derivation">
+<h3>Describe the spatial weights</h3>
+<p>The ellipse describes how the neuron weights locations in the visual field. We model those weights with an elongated Gaussian centered at the origin. Let \(\varphi\) be its long-axis angle. Coordinates along and across the field are</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}u&=x\cos\varphi+y\sin\varphi,\\v&=-x\sin\varphi+y\cos\varphi.\end{aligned}\)</p>
+<p>The widths \(\sigma_\parallel\ge\sigma_\perp\gt0\) are measured in degrees of visual angle. The weight decreases smoothly with distance along either axis.</p>
+<p class="input-key-equation">\(\displaystyle w(u,v)=\frac{1}{2\pi\sigma_\parallel\sigma_\perp}\exp\!\left(-\frac{u^2}{2\sigma_\parallel^2}-\frac{v^2}{2\sigma_\perp^2}\right)\)</p>
+<p>This is a product of two normalized one-dimensional Gaussians, \(w(u,v)=g_{\sigma_\parallel}(u)g_{\sigma_\perp}(v)\), where</p>
+<p class="input-key-equation">\(\displaystyle g_\sigma(z)=\frac{e^{-z^2/(2\sigma^2)}}{\sqrt{2\pi}\sigma},\qquad \int_{-\infty}^{\infty}g_\sigma(z)\,dz=1\)</p>
+
+<h3>Write the weighted input</h3>
+<p>At each location, multiply the signed stimulus contrast by its weight, then add over space. Call the resulting external drive \(q(\theta)\).</p>
+<p class="input-key-equation">\(\displaystyle q(\theta)=\iint_{\mathbb R^2}w(x,y)\,s_\theta(x,y)\,dx\,dy\)</p>
+<p>Write \(\delta=\theta-\varphi\) for the orientation difference and keep \(k=2\pi f\) from the grating expression. In the field's coordinates,</p>
+<p class="input-key-equation">\(\displaystyle x=u\cos\varphi-v\sin\varphi,\qquad y=u\sin\varphi+v\cos\varphi,\qquad dx\,dy=du\,dv\)</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}\mathbf n_\theta\cdot\mathbf x
+&=-x\sin\theta+y\cos\theta\\
+&=-\sin\theta(u\cos\varphi-v\sin\varphi)+\cos\theta(u\sin\varphi+v\cos\varphi)\\
+&=u\sin(\varphi-\theta)+v\cos(\theta-\varphi)\\
+&=-u\sin\delta+v\cos\delta.\end{aligned}\)</p>
+<p class="input-key-equation">\(\displaystyle q(\theta)=C\iint g_{\sigma_\parallel}(u)g_{\sigma_\perp}(v)\cos(-ku\sin\delta+kv\cos\delta+\psi)\,du\,dv\)</p>
+<h3>Separate the two spatial directions</h3>
+<p>First integrate along \(u\), treating \(v\) as fixed.</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}\cos(-ku\sin\delta+kv\cos\delta+\psi)
+&=\cos(ku\sin\delta)\cos(kv\cos\delta+\psi)\\
+&\quad+\sin(ku\sin\delta)\sin(kv\cos\delta+\psi).\end{aligned}\)</p>
+<p>The sine term is odd in \(u\), so it vanishes under the even Gaussian weight.</p>
+<p class="input-key-equation">\(\displaystyle \int_{-\infty}^{\infty}g_{\sigma_\parallel}(u)\sin(ku\sin\delta)\,du=0\)</p>
+<p class="input-key-equation">\(\displaystyle q(\theta)=C\left[\int_{-\infty}^{\infty}g_{\sigma_\parallel}(u)\cos(ku\sin\delta)\,du\right]\left[\int_{-\infty}^{\infty}g_{\sigma_\perp}(v)\cos(kv\cos\delta+\psi)\,dv\right]\)</p>
+<p>Now expand the remaining phase and integrate along \(v\).</p>
+<p class="input-key-equation">\(\displaystyle \cos(kv\cos\delta+\psi)=\cos(kv\cos\delta)\cos\psi-\sin(kv\cos\delta)\sin\psi\)</p>
+<p class="input-key-equation">\(\displaystyle \int_{-\infty}^{\infty}g_{\sigma_\perp}(v)\sin(kv\cos\delta)\,dv=0\)</p>
+<p class="input-key-equation">\(\displaystyle q(\theta)=C\cos\psi\left[\int_{-\infty}^{\infty}g_{\sigma_\parallel}(u)\cos(ku\sin\delta)\,du\right]\left[\int_{-\infty}^{\infty}g_{\sigma_\perp}(v)\cos(kv\cos\delta)\,dv\right]\)</p>
+<h3>Evaluate the Gaussian average</h3>
+<p>Both factors have the same form. Evaluate it once, with \(c\) standing for either \(k\sin\delta\) or \(k\cos\delta\).</p>
+<p class="input-key-equation">\(\displaystyle F_\sigma(c)=\int_{-\infty}^{\infty}g_\sigma(z)\cos(cz)\,dz\)</p>
+<p>Differentiate with respect to \(c\), keeping \(\sigma\) fixed.</p>
+<p class="input-key-equation">\(\displaystyle F_\sigma'(c)=-\int_{-\infty}^{\infty}z\,g_\sigma(z)\sin(cz)\,dz\)</p>
+<p>Differentiating the Gaussian gives \(g_\sigma'(z)=-z\,g_\sigma(z)/\sigma^2\). Substituting \(z\,g_\sigma(z)=-\sigma^2g_\sigma'(z)\) and integrating by parts yields</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}F_\sigma'(c)&=\sigma^2\int_{-\infty}^{\infty}g_\sigma'(z)\sin(cz)\,dz\\
+&=\sigma^2\left[g_\sigma(z)\sin(cz)\right]_{-\infty}^{\infty}-\sigma^2c\int_{-\infty}^{\infty}g_\sigma(z)\cos(cz)\,dz\\
+&=-\sigma^2cF_\sigma(c).\end{aligned}\)</p>
+<p>The boundary term vanishes because the Gaussian tends to zero. Separate variables and integrate both sides.</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}\frac{dF_\sigma}{dc}&=-\sigma^2cF_\sigma,\\\frac{dF_\sigma}{F_\sigma}&=-\sigma^2c\,dc,\\\int\frac{dF_\sigma}{F_\sigma}&=-\sigma^2\int c\,dc,\\\ln|F_\sigma(c)|&=-\frac{\sigma^2c^2}{2}+\text{constant}.\end{aligned}\)</p>
+<p>At \(c=0\), the cosine is 1, so \(F_\sigma(0)=\int_{-\infty}^{\infty}g_\sigma(z)\,dz=1\). Substituting this initial value determines the constant and the positive sign.</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}\text{constant}&=\ln 1=0,\\F_\sigma(c)&=e^{-\sigma^2c^2/2}.\end{aligned}\)</p>
+<h3>The input as a function of orientation</h3>
+<p>Apply the Gaussian integral to the long and short axes.</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}q(\theta)&=C\cos\psi\,e^{-k^2\sigma_\parallel^2\sin^2\delta/2}\,e^{-k^2\sigma_\perp^2\cos^2\delta/2}\\
+&=C\cos\psi\,\exp\!\left[-\frac{k^2}{2}\left(\sigma_\parallel^2\sin^2\delta+\sigma_\perp^2\cos^2\delta\right)\right].\end{aligned}\)</p>
+<p>Substitute \(\cos^2\delta=1-\sin^2\delta\) and restore \(\delta=\theta-\varphi\) to show the dependence on bar orientation directly.</p>
+<p class="input-key-equation">\(\displaystyle q(\theta)=C\cos\psi\,e^{-k^2\sigma_\perp^2/2}\exp\!\left[-\frac{k^2}{2}(\sigma_\parallel^2-\sigma_\perp^2)\sin^2(\theta-\varphi)\right]\)</p>
+<p>For the centered bright bars in the main demo, \(\psi=0\) and \(C\gt0\). Input is largest when the bars follow the long axis, \(\theta=\varphi\). A larger difference \(\sigma_\parallel^2-\sigma_\perp^2\) makes input fall more strongly as the bars rotate away. When the widths are equal, the orientation-dependent factor is 1 and there is no orientation preference. This is the pooled input before the threshold is applied.</p>
+</div>
+</details>
+<details class="math-disclosure" id="solving-population-steady-state">
+<summary>Solving the population steady state</summary>
+<div class="math-derivation">
+<h3>Set the time derivative to zero</h3>
+<p>For a fixed stimulus orientation \(\theta\), neuron \(i\) receives the pooled input derived above, with its own field angle \(\varphi_i\).</p>
+<p class="input-key-equation">\(\displaystyle I_i=C\cos\psi\,\exp\!\left[-\frac{k^2}{2}\left(\sigma_\parallel^2\sin^2(\theta-\varphi_i)+\sigma_\perp^2\cos^2(\theta-\varphi_i)\right)\right]\)</p>
+<p>The demo uses \(N=72\) equally spaced preferences, \(T=0.3\), and the connection weights</p>
+<p class="input-key-equation">\(\displaystyle W_{ij}=\frac{g}{N}\left[0.3+1.2\cos\!\bigl(2(\varphi_i-\varphi_j)\bigr)\right]\quad(i\ne j),\qquad W_{ii}=0\)</p>
+<p>At a steady state, denoted by a star, every time derivative is zero.</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}\tau\frac{dr_i}{dt}&=-r_i+\max\!\left(0,I_i+\sum_{j\ne i}W_{ij}r_j-T\right),\\0&=-r_i^*+\max\!\left(0,I_i+\sum_{j\ne i}W_{ij}r_j^*-T\right),\\r_i^*&=\max\!\left(0,I_i+\sum_{j\ne i}W_{ij}r_j^*-T\right).\end{aligned}\)</p>
+<p>The time constant drops out of this condition. It controls the speed of adjustment, not the steady response.</p>
+<h3>Solve for the active neurons</h3>
+<p>Let \(\mathcal A\) contain the neurons with \(r_i^*\gt0\). All other neurons have zero activity. For an active neuron, the argument of the maximum is positive, so</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}r_i^*&=I_i-T+\sum_{j\in\mathcal A}W_{ij}r_j^*,\\r_i^*-\sum_{j\in\mathcal A}W_{ij}r_j^*&=I_i-T\qquad(i\in\mathcal A).\end{aligned}\)</p>
+<p>Collect these equations into a matrix. \(\mathbf r_{\mathcal A}^*\) and \(\mathbf I_{\mathcal A}\) contain the active neurons' rates and visual inputs; \(W_{\mathcal A\mathcal A}\) contains their mutual connections. \(\mathrm{Id}\) is the identity matrix and \(\mathbf1\) is a vector of ones.</p>
+<p class="input-key-equation">\(\displaystyle \begin{aligned}(\mathrm{Id}-W_{\mathcal A\mathcal A})\mathbf r_{\mathcal A}^*&=\mathbf I_{\mathcal A}-T\mathbf1,\\\mathbf r_{\mathcal A}^*&=(\mathrm{Id}-W_{\mathcal A\mathcal A})^{-1}(\mathbf I_{\mathcal A}-T\mathbf1).\end{aligned}\)</p>
+<p>When the matrix is invertible, this gives a candidate solution. A proposed active set is valid only if its solution also satisfies both threshold conditions.</p>
+<p class="input-key-equation">\(\displaystyle \begin{cases}r_i^*\gt0,&i\in\mathcal A,\\I_i+\sum_{j\in\mathcal A}W_{ij}r_j^*-T\le0,&i\notin\mathcal A.\end{cases}\)</p>
+<p>The second condition matters because a neuron assigned zero activity must not receive enough net input to become active. Solving the unthresholded equations for every neuron would miss this distinction.</p>
+</div>
+</details>
+</section>
+<section id="references">
+<h2>References</h2>
+
+<ol class="references">
+<li id="ref1">
+Hubel, D. H. &amp; Wiesel, T. N. Receptive fields, binocular interaction and functional architecture in the cat’s visual cortex. <em>J. Physiol.</em> <b>160</b>, 106–154 (1962). <a href="https://doi.org/10.1113/jphysiol.1962.sp006837">https://doi.org/10.1113/jphysiol.1962.sp006837</a>
+</li>
+<li id="ref2">
+Carandini, M. &amp; Ferster, D. Membrane potential and firing rate in cat primary visual cortex. <em>J. Neurosci.</em> <b>20</b>, 470–484 (2000). <a href="https://doi.org/10.1523/JNEUROSCI.20-01-00470.2000">https://doi.org/10.1523/JNEUROSCI.20-01-00470.2000</a>
+</li>
+<li id="ref3">
+Ben-Yishai, R., Bar-Or, R. L. &amp; Sompolinsky, H. Theory of orientation tuning in visual cortex. <em>Proc. Natl Acad. Sci. USA</em> <b>92</b>, 3844–3848 (1995). <a href="https://doi.org/10.1073/pnas.92.9.3844">https://doi.org/10.1073/pnas.92.9.3844</a>
+</li>
+<li id="ref4">
+Ferster, D., Chung, S. &amp; Wheat, H. Orientation selectivity of thalamic input to simple cells of cat visual cortex. <em>Nature</em> <b>380</b>, 249–252 (1996). <a href="https://doi.org/10.1038/380249a0">https://doi.org/10.1038/380249a0</a>
+</li>
+<li id="ref5">
+Lien, A. D. &amp; Scanziani, M. Tuned thalamic excitation is amplified by visual cortical circuits. <em>Nat. Neurosci.</em> <b>16</b>, 1315–1323 (2013). <a href="https://doi.org/10.1038/nn.3488">https://doi.org/10.1038/nn.3488</a>
+</li>
+<li id="ref6">
+Ringach, D. L., Hawken, M. J. &amp; Shapley, R. Dynamics of orientation tuning in macaque primary visual cortex. <em>Nature</em> <b>387</b>, 281–284 (1997). <a href="https://doi.org/10.1038/387281a0">https://doi.org/10.1038/387281a0</a>
+</li>
+</ol>
+</section>
+<footer>
+<a href="#top">Back to top ↑</a>
+</footer>
+</main>
+</div>
+<noscript>
+<p class="no-js">The notebook text remains readable without JavaScript.</p>
+</noscript>
+</body>
+</html>
